@@ -9,22 +9,30 @@ from openpyxl.utils import get_column_letter
 def analisar_dados(dados_produtos):
     if not dados_produtos:
         return pd.DataFrame()
+        
     df = pd.DataFrame(dados_produtos)
     df['Preço'] = pd.to_numeric(df['Preço'], errors='coerce')
     df.dropna(subset=['Preço'], inplace=True)
     if df.empty:
         return pd.DataFrame()
 
-    df['Mínimo'] = ''
+    # 1. Encontra os índices (as linhas) da melhor opção para TODOS os produtos de uma vez
+    idx_melhores_opcoes = df.groupby('Produto')['Preço'].idxmin()
+
+    # 2. Cria as novas colunas, inicialmente vazias
+    df['Mínimo'] = pd.NA
     df['Melhor Fornecedor'] = ''
 
-    for nome_produto, group in df.groupby('Produto'):
-        idx_min = group['Preço'].idxmin()
-        menor_preco = group.loc[idx_min, 'Preço']
-        melhor_fornecedor = group.loc[idx_min, 'Fornecedor']
-        df.loc[idx_min, 'Mínimo'] = menor_preco
-        df.loc[idx_min, 'Melhor Fornecedor'] = melhor_fornecedor
-        
+    # 3. Usa os índices encontrados para preencher os valores apenas nas linhas corretas
+    df.loc[idx_melhores_opcoes, 'Mínimo'] = df.loc[idx_melhores_opcoes, 'Preço']
+    df.loc[idx_melhores_opcoes, 'Melhor Fornecedor'] = df.loc[idx_melhores_opcoes, 'Fornecedor']
+    
+    # Reordena as colunas para o formato final
+    colunas_ordenadas = ['Produto', 'Quantidade', 'Fornecedor', 'Preço', 'Entrega', 'Mínimo', 'Melhor Fornecedor']
+    # Garante que apenas colunas existentes sejam selecionadas para evitar erros
+    colunas_existentes = [col for col in colunas_ordenadas if col in df.columns]
+    df = df[colunas_existentes]
+
     return df
 
 
@@ -51,11 +59,19 @@ def _merge_product_cells(nome_arquivo):
         if len(rows) > 1:
             start_row = min(rows)
             end_row = max(rows)
-            # Mescla as células na coluna A (a primeira coluna)
+            
+            # --- ALTERAÇÃO AQUI ---
+            # Mescla a coluna A (Produto)
             sheet.merge_cells(start_row=start_row, start_column=1, end_row=end_row, end_column=1)
-            # Garante que o texto fique alinhado ao centro verticalmente
+            # Mescla a coluna B (Quantidade)
+            sheet.merge_cells(start_row=start_row, start_column=2, end_row=end_row, end_column=2) 
+            
+            # Garante que o texto fique alinhado ao centro verticalmente em ambas
             from openpyxl.styles import Alignment
-            sheet.cell(row=start_row, column=1).alignment = Alignment(vertical='center')
+            alignment = Alignment(vertical='center', horizontal='left')
+            sheet.cell(row=start_row, column=1).alignment = alignment
+            sheet.cell(row=start_row, column=2).alignment = alignment
+            # --- FIM DA ALTERAÇÃO ---
 
     workbook.save(nome_arquivo)
 

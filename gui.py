@@ -12,16 +12,16 @@ ctk.set_default_color_theme("tema_laranja.json")
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("COMPARADOR DE PREÇOS - HOSTDIME")
+        self.title("Comparador de preços - HOSTDIME")
         self.geometry("450x200")
 
-        self.label_produtos = ctk.CTkLabel(self, text="Quantos produtos deseja comparar?", font=("Poppins", 15, 'bold'))
+        self.label_produtos = ctk.CTkLabel(self, text="Quantos produtos deseja comparar?", font=("Poppins", 15))
         self.label_produtos.pack(pady=(20, 5))
 
         self.entry_produtos = ctk.CTkEntry(self, width=140, placeholder_text="Ex: 3")
         self.entry_produtos.pack()
 
-        self.start_button = ctk.CTkButton(self, text="INICIAR COMPARAÇÃO", command=self.abrir_janela_dados, font=("Poppins", 12,'bold'))
+        self.start_button = ctk.CTkButton(self, text="Iniciar comparação", command=self.abrir_janela_dados, font=("Poppins", 12,'bold'))
         self.start_button.pack(pady=20)
         
     def abrir_janela_dados(self):
@@ -38,43 +38,55 @@ class DataEntryWindow(ctk.CTkToplevel):
     def __init__(self, parent, num_produtos):
         super().__init__(parent)
         self.parent = parent
-        self.title("HOSTDIME - COMPRAS")
-        self.geometry("750x550")
+        self.title("Hostdime - Compras")
+        self.geometry("900x550")
 
-        # Estrutura com Scrollbar
-        self.scrollable_frame = ctk.CTkScrollableFrame(self, label_text="DADOS DOS PRODUTOS",label_font=("Poppins", 15, "bold"))
+        # 1. Criamos a área de rolagem como antes, sem cores.
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, label_text="Dados dos Produtos",label_font=("Poppins",14, "bold"))
         self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # 2. --- A MÁGICA ACONTECE AQUI: O FRAME-ENVELOPE ---
+        # Criamos um frame único para conter TUDO que vai dentro da área de rolagem.
+        content_wrapper = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+        content_wrapper.pack(fill="both", expand=True)
 
         self.product_widgets = []
         
         for i in range(num_produtos):
-            produto_frame = ctk.CTkFrame(self.scrollable_frame)
-            produto_frame.pack(padx=10, pady=4, fill="x", expand=True)
+            # 3. Os blocos de produto agora são filhos do 'content_wrapper', e não do 'scrollable_frame'
+            produto_frame = ctk.CTkFrame(content_wrapper)
             
-            ctk.CTkLabel(produto_frame, text="Nome do produto:",font=("Poppins",15,'bold')).grid(row=0, column=0, padx=10, pady=5, sticky='w')
-            nome_entry = ctk.CTkEntry(produto_frame, width=200, placeholder_text=f"Nome do produto {i+1}")
+            # 4. E agora, o pady=4 FINALMENTE vai funcionar como esperado!
+            produto_frame.pack(padx=10, pady=4, fill="x")
+            
+            # O resto do código para criar os widgets internos continua o mesmo
+            ctk.CTkLabel(produto_frame, text="Nome do produto:",font=("Poppins",14)).grid(row=0, column=0, padx=10, pady=5, sticky='w')
+            nome_entry = ctk.CTkEntry(produto_frame, width=200, placeholder_text=f"Nome do Produto {i+1}")
             nome_entry.grid(row=0, column=1, padx=10, pady=5, sticky='w')
             
-            ctk.CTkLabel(produto_frame, text="Nº de fornecedores:",font=("Poppins",15, 'bold')).grid(row=0, column=2, padx=10, pady=5, sticky='w')
+            ctk.CTkLabel(produto_frame, text="Nº de Fornecedores:",font=("Poppins",14)).grid(row=0, column=2, padx=10, pady=5, sticky='w')
             fornecedores_entry = ctk.CTkEntry(produto_frame, width=70)
             fornecedores_entry.grid(row=0, column=3, padx=10, pady=5, sticky='w')
 
-           
+            ctk.CTkLabel(produto_frame, text="Quantidade:",font=("Poppins",14)).grid(row=0, column=4, padx=10, pady=5, sticky='w')
+            quantidade_entry = ctk.CTkEntry(produto_frame, width=70)
+            quantidade_entry.grid(row=0, column=5, padx=10, pady=5, sticky='w')
             
             self.product_widgets.append({
-            "nome_entry": nome_entry,
-            "fornecedores_count_entry": fornecedores_entry,
-            "parent_frame": produto_frame, # Guardamos a referência do frame PAI
-            "container": None,             # O container ainda não existe
-            "fornecedor_entries": []
-})
+                "nome_entry": nome_entry,
+                "quantidade_entry": quantidade_entry,
+                "fornecedores_count_entry": fornecedores_entry,
+                "parent_frame": produto_frame,
+                "container": None,
+                "fornecedor_entries": []
+            })
         
-        # Frame para os botões de ação fora do scroll
+        # O resto do método continua igual
         action_frame = ctk.CTkFrame(self, fg_color="transparent")
         action_frame.pack(pady=10)
 
-        ctk.CTkButton(action_frame, text="CAMPOS PARA PREENCHIMENTO",font=("Poppins",12,'bold'), command=self._gerar_campos_fornecedores).pack(side="left", padx=10)
-        ctk.CTkButton(action_frame, text="GERAR COMPARATIVO",font=("Poppins",12,'bold'), command=self.processar_dados).pack(side="left", padx=10)
+        ctk.CTkButton(action_frame, text="Campos para preenchimento",font=("Poppins",12, "bold"),command=self._gerar_campos_fornecedores).pack(side="left", padx=10)
+        ctk.CTkButton(action_frame, text="Gerar comparativo",font=("Poppins",12, "bold"), command=self.processar_dados).pack(side="left", padx=10)
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -119,13 +131,14 @@ class DataEntryWindow(ctk.CTkToplevel):
         dados_brutos = []
         for product in self.product_widgets:
             nome_produto = product['nome_entry'].get().strip()
+            quantidade = product['quantidade_entry'].get().strip()
             if not nome_produto: continue
             for forn_entry, preco_entry, entrega_entry in product['fornecedor_entries']:
                 fornecedor = forn_entry.get().strip()
                 preco_str = preco_entry.get().strip().replace(',', '.')
                 entrega = entrega_entry.get().strip()
                 if fornecedor and preco_str:
-                   dados_brutos.append({"Produto": nome_produto, "Fornecedor": fornecedor, "Preço": preco_str, "Entrega": entrega})
+                   dados_brutos.append({"Produto": nome_produto, "Fornecedor": fornecedor, "Quantidade": quantidade,"Preço": preco_str, "Entrega": entrega})
         
         df_final = analisar_dados(dados_brutos)
         
